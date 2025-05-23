@@ -10,30 +10,29 @@ const int leftMOTOR  = A5;
 const int rightMOTOR = A3;
 
 const int IR   = A2;
-const int FAR  = 350;  // not used in this snippet
-const int NEAR = 500;  // not used in this snippet
+// 未使用常量已移除
 
 // We'll keep a global ring buffer of 6 sensor readings:
 int last3[6] = {999, 999, 999, 999, 999, 999};
 
-int i          = 0;
-bool process   = false;
+// 移除未使用的變量 i 與 process
 int wallcount  = 0;
 int n          = 10;
 int GapLength  = 0;
 bool lastHitLeft = false;
 
+// 感測器範圍設定
+const int SENSOR_LOW  = 110;
+const int SENSOR_MID  = 120;
+const int SENSOR_HIGH = 250;
+
+// 判定缺口長度的門檻
+const int GAP_THRESHOLD = 30;
+
 const byte FAST = 255;
 const byte SLOW = 60;
 
-// We read sensor every iteration in the 'while' loops
-// so 'previousMillis' and 'interval' are not used in this version:
-unsigned long previousMillis = 0;
-const unsigned long interval = 200;
-
-// Not used in your final code, but if you do need a gapcounter:
-int gapcounter     = 0;
-const int threshold = 8;
+// 移除未使用的定時相關變量
 
 
 // --------------------------------------------------------
@@ -116,14 +115,14 @@ void loop() {
 
       delay(20);  // small pause each iteration
 
-      // A) If the last 3 readings are in range (120..250),
-      //    move forward until sensor >= 250
-      if ( last3[3] < 250 && last3[4] < 250 && last3[5] < 250 &&
-           last3[3] > 120 && last3[4] > 120 && last3[5] > 120 ) 
+      // A) 若最近三次讀數位於 SENSOR_MID 與 SENSOR_HIGH 之間，
+      //    則向前行進直到感測值大於等於 SENSOR_HIGH
+      if ( last3[3] < SENSOR_HIGH && last3[4] < SENSOR_HIGH && last3[5] < SENSOR_HIGH &&
+           last3[3] > SENSOR_MID && last3[4] > SENSOR_MID && last3[5] > SENSOR_MID )
       {
         stopMotors();
         delay(40);
-        while (analogRead(IR) < 250) {
+        while (analogRead(IR) < SENSOR_HIGH) {
           goForward(SLOW);
         }
         stopMotors();
@@ -133,28 +132,25 @@ void loop() {
       if (LEFT == HIGH) {
         lastHitLeft = true;
       }
-      // C) Else if sensor < 110 => increment GapLength
-      else if (sensorValue < 110) {
+      // C) 若感測值低於 SENSOR_LOW，則累計 GapLength
+      else if (sensorValue < SENSOR_LOW) {
         GapLength++;
       }
-      // D) If sensor >= 110 => check if GapLength was big
+      // D) 如果感測值回到 SENSOR_LOW 以上，檢查缺口長度
       else {
-        if (GapLength > 30) {
+        if (GapLength > GAP_THRESHOLD) {
           // big gap found => do some turn logic
           goRight();
           // turn right for some time
           delay(20 * 15);
 
           sensorValue = analogRead(IR);
-          // move forward while sensor < 120
-          while (sensorValue < 120) {
+          // move forward while sensor < SENSOR_MID
+          while (sensorValue < SENSOR_MID) {
             goForward(SLOW);
             sensorValue = analogRead(IR);
-
-            // Reset the global array if you want to clear them:
-            // for (int k=0; k<6; k++) {
-            //   last3[k] = 999;
-            // }
+            // 重新清空資料以避免舊數值干擾
+            resetLast3();
           }
 
           GapLength = 0;
@@ -196,13 +192,13 @@ void loop() {
 
       delay(20);  // small pause
 
-      // A) If the last 3 are in [120..250], go forward
-      if ( last3[3] < 250 && last3[4] < 250 && last3[5] < 250 &&
-           last3[3] > 120 && last3[4] > 120 && last3[5] > 120 ) 
+      // A) 若最近三次讀數位於 SENSOR_MID 與 SENSOR_HIGH 之間，則向前行進
+      if ( last3[3] < SENSOR_HIGH && last3[4] < SENSOR_HIGH && last3[5] < SENSOR_HIGH &&
+           last3[3] > SENSOR_MID && last3[4] > SENSOR_MID && last3[5] > SENSOR_MID )
       {
         stopMotors();
         delay(40);
-        while (analogRead(IR) < 250) {
+        while (analogRead(IR) < SENSOR_HIGH) {
           goForward(SLOW);
         }
         stopMotors();
@@ -213,21 +209,22 @@ void loop() {
         lastHitLeft = false;
       }
 
-      // C) Else if sensor < 110 => increment gap
-      else if (sensorValue < 110) {
+      // C) 若感測值低於 SENSOR_LOW，則累計 GapLength
+      else if (sensorValue < SENSOR_LOW) {
         GapLength++;
       }
-      // D) If sensor >= 110 => check if GapLength was big
+      // D) 如果感測值回到 SENSOR_LOW 以上，檢查缺口長度
       else {
-        if (GapLength > 30) {
+        if (GapLength > GAP_THRESHOLD) {
           goLeft();
           delay(20 * 15);  // turn left for a bit
           sensorValue = analogRead(IR);
 
-          while (sensorValue < 120) {
+          while (sensorValue < SENSOR_MID) {
             goForward(SLOW);
             sensorValue = analogRead(IR);
-            // Optionally reset last3 here if you like
+            // 重新清空資料以避免舊數值干擾
+            resetLast3();
           }
 
           GapLength=0;
@@ -264,4 +261,11 @@ void shiftReadings(int newVal) {
   last3[3] = last3[4];
   last3[4] = last3[5];
   last3[5] = newVal;
+}
+
+// 將 last3 陣列重置為初始值
+void resetLast3() {
+  for (int i = 0; i < 6; i++) {
+    last3[i] = 999;
+  }
 }
